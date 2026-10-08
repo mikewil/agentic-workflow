@@ -1,0 +1,13 @@
+import {createCipheriv,createDecipheriv,createHash,createHmac,randomBytes,timingSafeEqual} from 'node:crypto';
+import type {Action,Actor,Policy,Project} from './types';
+export class HttpError extends Error {constructor(public status:number,message:string){super(message);}}
+export const hash=(v:string)=>createHash('sha256').update(v).digest('hex');
+export const token=()=>randomBytes(32).toString('base64url');
+export function authorize(actor:Actor,action:Action){if(action==='admin'&&actor.role!=='admin'||action==='operate'&&actor.role==='viewer')throw new HttpError(403,'Insufficient permissions');}
+function key(){const k=Buffer.from(process.env.ENCRYPTION_KEY??'','hex');if(k.length!==32)throw new Error('ENCRYPTION_KEY must be 32 bytes encoded as hex');return k;}
+export function encrypt(value:unknown,tenant:string){const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',key(),iv);c.setAAD(Buffer.from(tenant));const data=Buffer.concat([c.update(JSON.stringify(value),'utf8'),c.final()]);return [iv,c.getAuthTag(),data].map(b=>b.toString('base64url')).join('.');}
+export function decrypt<T=Record<string,string>>(value:string,tenant:string):T{const [iv,tag,data]=value.split('.').map(s=>Buffer.from(s,'base64url'));const c=createDecipheriv('aes-256-gcm',key(),iv);c.setAAD(Buffer.from(tenant));c.setAuthTag(tag);return JSON.parse(Buffer.concat([c.update(data),c.final()]).toString());}
+export function verifyGitHub(body:string,signature:string|null,secret:string){const expected='sha256='+createHmac('sha256',secret).update(body).digest('hex');return !!signature&&Buffer.byteLength(signature)===Buffer.byteLength(expected)&&timingSafeEqual(Buffer.from(signature),Buffer.from(expected));}
+export function policyDenial(project:Project,action:Policy['actions'][number],branch=project.config.baseBranch){if(!project.policy.actions.includes(action))return `Policy does not allow ${action}`;if(!project.policy.branches.includes(branch))return `Branch ${branch} is not allowed`;if(['deploy','rollback'].includes(action)&&!project.policy.environments.includes(project.config.environment))return `Environment ${project.config.environment} is not allowed`;return null;}
+export function redact(text:string,secrets:string[]=[]){let result=text.replace(/\b(?:gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|xox[baprs]-[A-Za-z0-9-]+|sk-[A-Za-z0-9_-]{12,})\b/g,'[REDACTED]').replace(/(authorization\s*[:=]\s*)(?:Bearer|Basic)\s+\S+/gi,'$1[REDACTED]');for(const s of secrets.filter(s=>s.length>=6))result=result.split(s).join('[REDACTED]');return result;}
+export function sameOrigin(req:Request){const origin=req.headers.get('origin');if(!origin||origin!==new URL(process.env.APP_URL??req.url).origin)throw new HttpError(403,'Invalid request origin');}

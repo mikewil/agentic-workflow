@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_DB: lifecycle
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["database:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lifecycle"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build: .
+    command: ["npm", "run", "db:migrate"]
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/lifecycle
+      DATABASE_URL: postgresql://lifecycle_runtime:${RUNTIME_DATABASE_PASSWORD:?Set RUNTIME_DATABASE_PASSWORD}@postgres:5432/lifecycle
+    depends_on:
+      postgres: {condition: service_healthy}
+  web:
+    build: .
+    ports: ["127.0.0.1:3000:3000"]
+    environment: &runtime
+      DATABASE_URL: postgresql://lifecycle_runtime:${RUNTIME_DATABASE_PASSWORD}@postgres:5432/lifecycle
+      APP_URL: ${APP_URL:?Set APP_URL}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      HEALTH_ALLOWED_HOSTS: ${HEALTH_ALLOWED_HOSTS:-}
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+  worker:
+    build: .
+    command: ["npm", "run", "worker"]
+    environment: *runtime
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+volumes:
+  database:

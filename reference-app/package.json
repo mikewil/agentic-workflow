@@ -1,0 +1,16 @@
+{
+  "name": "lifecycle-reference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test.mjs",
+    "build": "node --check server.mjs",
+    "test:ui": "node ui-test.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@axe-core/playwright": "4.13.0"
+  }
+}

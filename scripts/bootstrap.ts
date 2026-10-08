@@ -1,0 +1,6 @@
+import pg from 'pg';import {randomUUID} from 'node:crypto';
+const login=process.argv[2]??process.env.BOOTSTRAP_GITHUB_LOGIN;if(!login||!/^[A-Za-z0-9-]{1,39}$/.test(login))throw new Error('Usage: npm run db:bootstrap -- YOUR_GITHUB_LOGIN');
+const client=new pg.Client({connectionString:process.env.MIGRATION_DATABASE_URL});await client.connect();
+try{await client.query('BEGIN');for(const [slug,name,color] of [['northstar','Northstar Engineering','#90b99d'],['fieldwork','Fieldwork Labs','#b4bfe2']]){
+const t=await client.query('INSERT INTO tenants(id,slug,name,branding) VALUES($1,$2,$3,$4) ON CONFLICT(slug) DO UPDATE SET slug=EXCLUDED.slug RETURNING id',[randomUUID(),slug,name,JSON.stringify({primary:color,accent:'#ceb58a',theme:'dark',logo:''})]);await client.query("INSERT INTO invitations(id,tenant_id,github_login,role,expires_at) VALUES($1,$2,$3,'admin',now()+interval '7 days') ON CONFLICT(tenant_id,github_login) DO UPDATE SET expires_at=EXCLUDED.expires_at",[randomUUID(),t.rows[0].id,login.toLowerCase()]);console.log(`${name}: ${t.rows[0].id}`);
+}await client.query('COMMIT');console.log(`Invited ${login} as administrator of both isolated demonstration organizations.`);}catch(e){await client.query('ROLLBACK');throw e;}finally{await client.end();}

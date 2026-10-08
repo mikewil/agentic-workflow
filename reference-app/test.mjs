@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {createApp,html} from './server.mjs';
+test('serves healthy status and accessible document structure',async()=>{const server=createApp();await new Promise(r=>server.listen(0,'127.0.0.1',r));try{const r=await fetch(`http://127.0.0.1:${server.address().port}/health`);assert.equal(r.status,200);assert.equal((await r.json()).status,'ok');assert.match(html,/<html lang="en">/);assert.match(html,/<main>/);}finally{await new Promise(r=>server.close(r));}});

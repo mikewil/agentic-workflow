@@ -1,0 +1,26 @@
+name: Deploy reference application
+run-name: ${{ inputs.lifecycle_run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      lifecycle_run_id: {type: string, required: true}
+      sha: {type: string, required: true}
+      environment: {type: string, required: true}
+permissions: {contents: read}
+concurrency: {group: reference-deployment, cancel-in-progress: false}
+jobs:
+  deploy:
+    runs-on: [self-hosted, lifecycle-reference]
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ inputs.sha }}'}
+      - name: Build and deploy exact revision
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+          BREAK_HEALTH: ${{ vars.REFERENCE_BREAK_HEALTH || 'false' }}
+        run: |
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          docker build -t "lifecycle-reference:$RELEASE_SHA" .
+          docker rm -f lifecycle-reference 2>/dev/null || true
+          docker run -d --name lifecycle-reference --restart unless-stopped -p 8080:8080 -e RELEASE_SHA -e BREAK_HEALTH "lifecycle-reference:$RELEASE_SHA"

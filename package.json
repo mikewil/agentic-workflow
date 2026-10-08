@@ -1,0 +1,49 @@
+{
+  "name": "agentic-workflow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build --webpack",
+    "start": "next start --hostname 0.0.0.0",
+    "worker": "node --env-file-if-exists=.env --import tsx src/worker/main.ts",
+    "runner": "node --env-file-if-exists=.env --import tsx src/runner/main.ts",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",
+    "db:bootstrap": "node --env-file-if-exists=.env --import tsx scripts/bootstrap.ts",
+    "test": "vitest run",
+    "test:live": "node --env-file-if-exists=.env --import tsx scripts/live.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test && npm run build",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@slack/bolt": "5.1.0",
+    "next": "16.4.0",
+    "pg": "8.23.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@electric-sql/pglite": "0.5.8",
+    "@openai/codex": "0.161.0",
+    "@playwright/test": "1.64.0",
+    "@types/emscripten": "1.41.6",
+    "@types/node": "26.6.4",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "prettier": "3.9.9",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-darwin-arm64": "1.2.13"
+  }
+}
